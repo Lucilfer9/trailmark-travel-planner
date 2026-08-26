@@ -66,9 +66,9 @@ type TripPlanRow = {
 const STORAGE_KEY = "trailmark-local-planner-v1";
 
 const initialPlanner: PlannerState = {
-  destination: "",
-  departing: "",
-  returning: "",
+  destination: "Banff National Park",
+  departing: "2026-09-01",
+  returning: "2026-09-08",
   travelers: "2",
   stops: ["Arrive in Calgary", "Drive to Banff", "Hike Johnston Canyon"],
   checklistGroups: [
@@ -478,7 +478,9 @@ export default function Home() {
         <div className="planner-card" ref={plannerRef}>
           <div className="planner-heading">
             <span className="step-label">01 · Start your trip</span>
-            <h2 id="planner-title">Where are you headed?</h2>
+            <h2 id="planner-title">
+              {planner.destination.trim() || "Your destination"} Trip Planner
+            </h2>
           </div>
           <form className="planner-form" onSubmit={createTripDraft}>
             <label className="field destination-field">
@@ -574,41 +576,6 @@ export default function Home() {
             </form>
           )}
           {authMessage && <p className="cloud-message" aria-live="polite">{authMessage}</p>}
-        </div>
-      </section>
-
-      <section className="destinations section-shell" id="destinations">
-        <div className="section-heading split-heading">
-          <div>
-            <span className="eyebrow">Popular right now</span>
-            <h2>Nature-forward destinations</h2>
-          </div>
-          <p>Open air, memorable trails, and room to breathe—picked for the kind of trip that feels restorative.</p>
-        </div>
-        <div className="destination-grid">
-          {destinations.map((destination) => (
-            <Card className="destination-card" key={destination.name}>
-              <button
-                type="button"
-                onClick={() => chooseDestination(destination.name)}
-                aria-label={`Plan a trip to ${destination.name}`}
-              >
-                <span
-                  className="destination-image"
-                  style={{ backgroundImage: `url(${destination.image})` }}
-                >
-                  <span className="destination-tag">{destination.tag}</span>
-                </span>
-                <span className="destination-copy">
-                  <span>
-                    <strong>{destination.name}</strong>
-                    <small>{destination.location}</small>
-                  </span>
-                  <span className="circle-arrow" aria-hidden="true"><ArrowRight /></span>
-                </span>
-              </button>
-            </Card>
-          ))}
         </div>
       </section>
 
@@ -741,6 +708,41 @@ export default function Home() {
               )}
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="destinations section-shell" id="destinations">
+        <div className="section-heading split-heading">
+          <div>
+            <span className="eyebrow">Popular right now</span>
+            <h2>Nature-forward destinations</h2>
+          </div>
+          <p>Open air, memorable trails, and room to breathe—picked for the kind of trip that feels restorative.</p>
+        </div>
+        <div className="destination-grid">
+          {destinations.map((destination) => (
+            <Card className="destination-card" key={destination.name}>
+              <button
+                type="button"
+                onClick={() => chooseDestination(destination.name)}
+                aria-label={`Plan a trip to ${destination.name}`}
+              >
+                <span
+                  className="destination-image"
+                  style={{ backgroundImage: `url(${destination.image})` }}
+                >
+                  <span className="destination-tag">{destination.tag}</span>
+                </span>
+                <span className="destination-copy">
+                  <span>
+                    <strong>{destination.name}</strong>
+                    <small>{destination.location}</small>
+                  </span>
+                  <span className="circle-arrow" aria-hidden="true"><ArrowRight /></span>
+                </span>
+              </button>
+            </Card>
+          ))}
         </div>
       </section>
 

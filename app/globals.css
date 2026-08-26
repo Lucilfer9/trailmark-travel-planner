@@ -134,8 +134,8 @@ h1, h2, h3 { font-family: var(--font-fraunces), Georgia, serif; }
 
 .planner-wrap { position: relative; z-index: 3; width: min(100% - 64px, 1200px); margin: -52px auto 0; scroll-margin-top: 24px; }
 .planner-card { padding: 30px; border-radius: 24px; background: rgba(255,253,248,.97); box-shadow: var(--shadow-lg); border: 1px solid rgba(255,255,255,.85); }
-.planner-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 24px; margin-bottom: 22px; }
-.planner-heading h2 { font-size: 30px; }
+.planner-heading { display: grid; gap: 10px; margin-bottom: 26px; }
+.planner-heading h2 { max-width: 920px; font-size: clamp(2.5rem, 5vw, 4.9rem); font-weight: 600; line-height: .98; letter-spacing: -.04em; }
 .step-label { color: var(--moss); font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 .planner-form { display: grid; grid-template-columns: 1.3fr .9fr .9fr .8fr auto; gap: 12px; align-items: end; }
 .field { display: grid; gap: 8px; }
@@ -274,7 +274,7 @@ footer { padding: 54px max(32px, calc((100% - 1200px) / 2)); background: var(--f
   .cloud-panel { grid-template-columns: 1fr; margin-inline: 0; }
   .cloud-form, .cloud-actions { justify-content: stretch; }
   .cloud-form input { width: 100%; }
-  .planner-heading { display: grid; }
+  .planner-heading h2 { font-size: clamp(2.25rem, 11vw, 3.6rem); }
   .planner-form { grid-template-columns: 1fr; }
   .destination-field, .planner-submit { grid-column: auto; }
   .section-shell { padding: 78px 0; }
