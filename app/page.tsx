@@ -5,8 +5,6 @@ import {
   ArrowRight,
   CalendarDays,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Cloud,
   GripVertical,
   Leaf,
@@ -389,6 +387,13 @@ export default function Home() {
     );
   }
 
+  function updateStopLabel(stopId: string, label: string) {
+    updatePlanner(
+      "stops",
+      planner.stops.map((stop) => stop.id === stopId ? { ...stop, label } : stop),
+    );
+  }
+
   function reorderStop(stopId: string, targetStopId: string, day: number) {
     if (stopId === targetStopId) return;
 
@@ -414,15 +419,6 @@ export default function Home() {
       };
     });
     setMessage("");
-  }
-
-  function moveStop(stopId: string, day: number, direction: -1 | 1) {
-    const dayStops = planner.stops.filter(
-      (stop) => Math.min(stop.day, tripDays.length) === day,
-    );
-    const currentIndex = dayStops.findIndex((stop) => stop.id === stopId);
-    const target = dayStops[currentIndex + direction];
-    if (target) reorderStop(stopId, target.id, day);
   }
 
   function addChecklistGroup(event: React.FormEvent<HTMLFormElement>) {
@@ -815,28 +811,14 @@ export default function Home() {
                               onChange={(event) => updateStopTime(stop.id, event.target.value)}
                               aria-label={`Time for ${stop.label} on Day ${day.number}`}
                             />
-                            <span className="stop-name">{stop.label}</span>
+                            <Input
+                              className="stop-name-input"
+                              value={stop.label}
+                              onChange={(event) => updateStopLabel(stop.id, event.target.value)}
+                              aria-label={`Name for stop ${index + 1} on Day ${day.number}`}
+                              title="Edit stop name"
+                            />
                             <span className="stop-actions">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                disabled={index === 0}
-                                onClick={() => moveStop(stop.id, day.number, -1)}
-                                aria-label={`Move ${stop.label} up on Day ${day.number}`}
-                              >
-                                <ChevronUp />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                disabled={index === stopsForDay.length - 1}
-                                onClick={() => moveStop(stop.id, day.number, 1)}
-                                aria-label={`Move ${stop.label} down on Day ${day.number}`}
-                              >
-                                <ChevronDown />
-                              </Button>
                               <Button
                                 type="button"
                                 variant="ghost"
