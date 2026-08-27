@@ -204,13 +204,14 @@ h1, h2, h3 { font-family: var(--font-fraunces), Georgia, serif; }
 .stop-list li.drag-over { border-color: var(--sage); background: rgba(167,176,147,.18); transform: translateY(2px); }
 .stop-list .empty-row { display: flex; color: rgba(255,255,255,.55); font-size: 13px; }
 .stop-number { color: var(--sage); font-size: 11px; font-weight: 700; letter-spacing: .1em; }
-.stop-name { min-width: 0; padding-inline: 4px; overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.stop-name-input { height: 34px !important; padding-inline: 7px; border-color: transparent !important; background: transparent !important; color: white; box-shadow: none !important; font-size: 14px; }
+.stop-name-input:hover { border-color: rgba(255,255,255,.16) !important; background: rgba(255,255,255,.05) !important; }
+.stop-name-input:focus-visible { border-color: var(--sage) !important; background: rgba(255,255,255,.08) !important; }
 .drag-handle { display: grid; width: 28px; height: 34px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: rgba(255,255,255,.46); cursor: grab; touch-action: none; }
 .drag-handle:active { cursor: grabbing; }
 .drag-handle svg { width: 17px; height: 17px; }
 .stop-time-input { width: 98px; height: 34px !important; padding-inline: 7px; border-color: rgba(255,255,255,.12) !important; background: rgba(255,255,255,.07) !important; color: white; color-scheme: dark; font-size: 12px; }
 .stop-actions { display: flex; align-items: center; }
-.stop-actions button:disabled { opacity: .22; }
 .stop-list button { color: rgba(255,255,255,.55); }
 .stop-list button:hover { background: rgba(255,255,255,.1); color: white; }
 .itinerary-visual { position: relative; min-height: 640px; background: url("https://images.unsplash.com/photo-1501555088652-021faa106b9b?auto=format&fit=crop&w=1000&q=88") center/cover; }
@@ -329,7 +330,7 @@ footer { padding: 54px max(32px, calc((100% - 1200px) / 2)); background: var(--f
   .day-form button { grid-column: 2; grid-row: 2; }
   .stop-list li { grid-template-columns: 26px 28px minmax(0, 1fr) auto; gap: 2px; }
   .stop-time-input { grid-column: 3; grid-row: 1; width: 100%; max-width: 105px; }
-  .stop-name { grid-column: 2 / 4; grid-row: 2; padding: 3px 0 2px; }
+  .stop-name-input { grid-column: 2 / 4; grid-row: 2; }
   .stop-actions { grid-column: 4; grid-row: 1 / 3; }
   .inline-form.item-form { gap: 6px; }
 }
