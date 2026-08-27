@@ -45,12 +45,18 @@ type ChecklistGroup = {
   items: ChecklistItem[];
 };
 
+type ItineraryStop = {
+  id: string;
+  day: number;
+  label: string;
+};
+
 type PlannerState = {
   destination: string;
   departing: string;
   returning: string;
   travelers: string;
-  stops: string[];
+  stops: ItineraryStop[];
   checklistGroups: ChecklistGroup[];
 };
 
@@ -59,7 +65,7 @@ type TripPlanRow = {
   departure_date: string | null;
   return_date: string | null;
   travelers: string;
-  stops: string[];
+  stops: Array<string | ItineraryStop>;
   checklist_groups: ChecklistGroup[];
 };
 
@@ -70,7 +76,11 @@ const initialPlanner: PlannerState = {
   departing: "2026-09-01",
   returning: "2026-09-08",
   travelers: "2",
-  stops: ["Arrive in Calgary", "Drive to Banff", "Hike Johnston Canyon"],
+  stops: [
+    { id: "arrival-calgary", day: 1, label: "Arrive in Calgary" },
+    { id: "drive-banff", day: 2, label: "Drive to Banff" },
+    { id: "hike-johnston", day: 3, label: "Hike Johnston Canyon" },
+  ],
   checklistGroups: [
     {
       id: "documents",
@@ -139,9 +149,41 @@ const destinations = [
 const makeId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+function normalizeStops(stops: unknown): ItineraryStop[] {
+  if (!Array.isArray(stops)) return initialPlanner.stops;
+
+  return stops.flatMap((stop, index) => {
+    if (typeof stop === "string") {
+      return [{ id: `legacy-stop-${index}`, day: 1, label: stop }];
+    }
+
+    if (
+      stop &&
+      typeof stop === "object" &&
+      "label" in stop &&
+      typeof stop.label === "string"
+    ) {
+      const day = "day" in stop && typeof stop.day === "number" ? stop.day : 1;
+      const id = "id" in stop && typeof stop.id === "string"
+        ? stop.id
+        : `saved-stop-${index}`;
+      return [{ id, day: Math.max(1, Math.floor(day)), label: stop.label }];
+    }
+
+    return [];
+  });
+}
+
+function toDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function Home() {
   const [planner, setPlanner] = useState<PlannerState>(initialPlanner);
-  const [stopDraft, setStopDraft] = useState("");
+  const [stopDrafts, setStopDrafts] = useState<Record<number, string>>({});
   const [groupDraft, setGroupDraft] = useState("");
   const [itemDrafts, setItemDrafts] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
@@ -158,7 +200,10 @@ export default function Home() {
       if (!active) return;
       try {
         const saved = window.localStorage.getItem(STORAGE_KEY);
-        if (saved) setPlanner(JSON.parse(saved) as PlannerState);
+        if (saved) {
+          const parsed = JSON.parse(saved) as PlannerState;
+          setPlanner({ ...parsed, stops: normalizeStops(parsed.stops) });
+        }
       } catch {
         setMessage("Your saved draft could not be loaded, so a fresh one was opened.");
       } finally {
@@ -218,7 +263,7 @@ export default function Home() {
             departing: row.departure_date ?? "",
             returning: row.return_date ?? "",
             travelers: row.travelers,
-            stops: row.stops,
+            stops: normalizeStops(row.stops),
             checklistGroups: row.checklist_groups,
           });
           setAuthMessage("Your cloud trip has been loaded.");
@@ -237,6 +282,27 @@ export default function Home() {
     const days = Math.ceil((end.getTime() - start.getTime()) / 86_400_000) + 1;
     return days > 0 ? days : null;
   }, [planner.departing, planner.returning]);
+
+  const tripDays = useMemo(() => {
+    if (!tripLength || !planner.departing) {
+      return [{ number: 1, isoDate: "", dateLabel: "Add travel dates" }];
+    }
+
+    const start = new Date(`${planner.departing}T00:00:00`);
+    return Array.from({ length: tripLength }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      return {
+        number: index + 1,
+        isoDate: toDateInputValue(date),
+        dateLabel: date.toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        }),
+      };
+    });
+  }, [planner.departing, tripLength]);
 
   const completedItems = planner.checklistGroups.reduce(
     (total, group) => total + group.items.filter((item) => item.done).length,
@@ -279,23 +345,27 @@ export default function Home() {
     plannerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
-  function addStop(event: React.FormEvent<HTMLFormElement>) {
+  function addStop(event: React.FormEvent<HTMLFormElement>, day: number) {
     event.preventDefault();
-    const nextStop = stopDraft.trim();
+    const nextStop = (stopDrafts[day] ?? "").trim();
     if (!nextStop) return;
-    if (planner.stops.some((stop) => stop.toLowerCase() === nextStop.toLowerCase())) {
-      setMessage("That stop is already in your itinerary.");
+    if (
+      planner.stops.some(
+        (stop) => stop.day === day && stop.label.toLowerCase() === nextStop.toLowerCase(),
+      )
+    ) {
+      setMessage(`That stop is already listed for Day ${day}.`);
       return;
     }
-    updatePlanner("stops", [...planner.stops, nextStop]);
-    setStopDraft("");
+    updatePlanner("stops", [
+      ...planner.stops,
+      { id: makeId("stop"), day, label: nextStop },
+    ]);
+    setStopDrafts((drafts) => ({ ...drafts, [day]: "" }));
   }
 
-  function removeStop(index: number) {
-    updatePlanner(
-      "stops",
-      planner.stops.filter((_, stopIndex) => stopIndex !== index),
-    );
+  function removeStop(stopId: string) {
+    updatePlanner("stops", planner.stops.filter((stop) => stop.id !== stopId));
   }
 
   function addChecklistGroup(event: React.FormEvent<HTMLFormElement>) {
@@ -584,37 +654,76 @@ export default function Home() {
           <div className="itinerary-content">
             <span className="eyebrow light">02 · Shape the route</span>
             <h2>Build your itinerary</h2>
-            <p>Add stops as your plan takes shape. Your local draft updates automatically.</p>
-            <form className="inline-form dark-form" onSubmit={addStop}>
-              <Input
-                value={stopDraft}
-                onChange={(event) => setStopDraft(event.target.value)}
-                placeholder="Add a stop, e.g. Lake Louise"
-                aria-label="New itinerary stop"
-              />
-              <Button type="submit">Add stop <Plus /></Button>
-            </form>
-            <ol className="stop-list">
-              {planner.stops.length === 0 ? (
-                <li className="empty-row">No stops yet. Add the first place you want to visit.</li>
-              ) : (
-                planner.stops.map((stop, index) => (
-                  <li key={`${stop}-${index}`}>
-                    <span className="stop-number">{String(index + 1).padStart(2, "0")}</span>
-                    <span className="stop-name">{stop}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => removeStop(index)}
-                      aria-label={`Remove ${stop}`}
+            <p>
+              {tripLength
+                ? `${tripLength} days are ready for you to organize.`
+                : "Choose your departing and returning dates to create each travel day."}
+            </p>
+            <div className="day-plans" aria-label={`${tripDays.length}-day itinerary`}>
+              {tripDays.map((day) => {
+                const stopsForDay = planner.stops.filter(
+                  (stop) => Math.min(stop.day, tripDays.length) === day.number,
+                );
+
+                return (
+                  <article className="day-plan" key={day.number}>
+                    <div className="day-heading">
+                      <div>
+                        <span>Day {day.number}</span>
+                        {day.isoDate ? (
+                          <time dateTime={day.isoDate}>{day.dateLabel}</time>
+                        ) : (
+                          <small>{day.dateLabel}</small>
+                        )}
+                      </div>
+                      <small>
+                        {stopsForDay.length} {stopsForDay.length === 1 ? "stop" : "stops"}
+                      </small>
+                    </div>
+                    <form
+                      className="inline-form day-form"
+                      onSubmit={(event) => addStop(event, day.number)}
                     >
-                      <Trash2 />
-                    </Button>
-                  </li>
-                ))
-              )}
-            </ol>
+                      <Input
+                        value={stopDrafts[day.number] ?? ""}
+                        onChange={(event) => setStopDrafts((drafts) => ({
+                          ...drafts,
+                          [day.number]: event.target.value,
+                        }))}
+                        placeholder={`Add a stop for Day ${day.number}`}
+                        aria-label={`New itinerary stop for Day ${day.number}`}
+                      />
+                      <Button type="submit" aria-label={`Add stop to Day ${day.number}`}>
+                        Add <Plus />
+                      </Button>
+                    </form>
+                    <ol className="stop-list">
+                      {stopsForDay.length === 0 ? (
+                        <li className="empty-row">No plans yet for this day.</li>
+                      ) : (
+                        stopsForDay.map((stop, index) => (
+                          <li key={stop.id}>
+                            <span className="stop-number">
+                              {String(index + 1).padStart(2, "0")}
+                            </span>
+                            <span className="stop-name">{stop.label}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => removeStop(stop.id)}
+                              aria-label={`Remove ${stop.label} from Day ${day.number}`}
+                            >
+                              <Trash2 />
+                            </Button>
+                          </li>
+                        ))
+                      )}
+                    </ol>
+                  </article>
+                );
+              })}
+            </div>
           </div>
           <div className="itinerary-visual" aria-label="Hiker looking across a mountain landscape">
             <div className="route-badge">
