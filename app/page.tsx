@@ -5,7 +5,10 @@ import {
   ArrowRight,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Cloud,
+  GripVertical,
   Leaf,
   Loader2,
   LogIn,
@@ -49,6 +52,7 @@ type ItineraryStop = {
   id: string;
   day: number;
   label: string;
+  time: string;
 };
 
 type PlannerState = {
@@ -77,9 +81,9 @@ const initialPlanner: PlannerState = {
   returning: "2026-09-08",
   travelers: "2",
   stops: [
-    { id: "arrival-calgary", day: 1, label: "Arrive in Calgary" },
-    { id: "drive-banff", day: 2, label: "Drive to Banff" },
-    { id: "hike-johnston", day: 3, label: "Hike Johnston Canyon" },
+    { id: "arrival-calgary", day: 1, label: "Arrive in Calgary", time: "09:30" },
+    { id: "drive-banff", day: 2, label: "Drive to Banff", time: "10:00" },
+    { id: "hike-johnston", day: 3, label: "Hike Johnston Canyon", time: "08:00" },
   ],
   checklistGroups: [
     {
@@ -154,7 +158,7 @@ function normalizeStops(stops: unknown): ItineraryStop[] {
 
   return stops.flatMap((stop, index) => {
     if (typeof stop === "string") {
-      return [{ id: `legacy-stop-${index}`, day: 1, label: stop }];
+      return [{ id: `legacy-stop-${index}`, day: 1, label: stop, time: "" }];
     }
 
     if (
@@ -167,7 +171,10 @@ function normalizeStops(stops: unknown): ItineraryStop[] {
       const id = "id" in stop && typeof stop.id === "string"
         ? stop.id
         : `saved-stop-${index}`;
-      return [{ id, day: Math.max(1, Math.floor(day)), label: stop.label }];
+      const time = "time" in stop && typeof stop.time === "string"
+        ? stop.time
+        : "";
+      return [{ id, day: Math.max(1, Math.floor(day)), label: stop.label, time }];
     }
 
     return [];
@@ -184,6 +191,9 @@ function toDateInputValue(date: Date) {
 export default function Home() {
   const [planner, setPlanner] = useState<PlannerState>(initialPlanner);
   const [stopDrafts, setStopDrafts] = useState<Record<number, string>>({});
+  const [stopTimeDrafts, setStopTimeDrafts] = useState<Record<number, string>>({});
+  const [draggedStopId, setDraggedStopId] = useState<string | null>(null);
+  const [dragOverStopId, setDragOverStopId] = useState<string | null>(null);
   const [groupDraft, setGroupDraft] = useState("");
   const [itemDrafts, setItemDrafts] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
@@ -348,10 +358,13 @@ export default function Home() {
   function addStop(event: React.FormEvent<HTMLFormElement>, day: number) {
     event.preventDefault();
     const nextStop = (stopDrafts[day] ?? "").trim();
+    const nextTime = stopTimeDrafts[day] ?? "";
     if (!nextStop) return;
     if (
       planner.stops.some(
-        (stop) => stop.day === day && stop.label.toLowerCase() === nextStop.toLowerCase(),
+        (stop) => stop.day === day
+          && stop.label.toLowerCase() === nextStop.toLowerCase()
+          && stop.time === nextTime,
       )
     ) {
       setMessage(`That stop is already listed for Day ${day}.`);
@@ -359,13 +372,57 @@ export default function Home() {
     }
     updatePlanner("stops", [
       ...planner.stops,
-      { id: makeId("stop"), day, label: nextStop },
+      { id: makeId("stop"), day, label: nextStop, time: nextTime },
     ]);
     setStopDrafts((drafts) => ({ ...drafts, [day]: "" }));
+    setStopTimeDrafts((drafts) => ({ ...drafts, [day]: "" }));
   }
 
   function removeStop(stopId: string) {
     updatePlanner("stops", planner.stops.filter((stop) => stop.id !== stopId));
+  }
+
+  function updateStopTime(stopId: string, time: string) {
+    updatePlanner(
+      "stops",
+      planner.stops.map((stop) => stop.id === stopId ? { ...stop, time } : stop),
+    );
+  }
+
+  function reorderStop(stopId: string, targetStopId: string, day: number) {
+    if (stopId === targetStopId) return;
+
+    setPlanner((current) => {
+      const isInDay = (stop: ItineraryStop) =>
+        Math.min(stop.day, tripDays.length) === day;
+      const dayStops = current.stops.filter(isInDay);
+      const fromIndex = dayStops.findIndex((stop) => stop.id === stopId);
+      const toIndex = dayStops.findIndex((stop) => stop.id === targetStopId);
+
+      if (fromIndex < 0 || toIndex < 0) return current;
+
+      const reordered = [...dayStops];
+      const [moved] = reordered.splice(fromIndex, 1);
+      reordered.splice(toIndex, 0, moved);
+
+      let replacementIndex = 0;
+      return {
+        ...current,
+        stops: current.stops.map((stop) =>
+          isInDay(stop) ? reordered[replacementIndex++] : stop,
+        ),
+      };
+    });
+    setMessage("");
+  }
+
+  function moveStop(stopId: string, day: number, direction: -1 | 1) {
+    const dayStops = planner.stops.filter(
+      (stop) => Math.min(stop.day, tripDays.length) === day,
+    );
+    const currentIndex = dayStops.findIndex((stop) => stop.id === stopId);
+    const target = dayStops[currentIndex + direction];
+    if (target) reorderStop(stopId, target.id, day);
   }
 
   function addChecklistGroup(event: React.FormEvent<HTMLFormElement>) {
@@ -685,6 +742,16 @@ export default function Home() {
                       onSubmit={(event) => addStop(event, day.number)}
                     >
                       <Input
+                        className="day-time-input"
+                        type="time"
+                        value={stopTimeDrafts[day.number] ?? ""}
+                        onChange={(event) => setStopTimeDrafts((drafts) => ({
+                          ...drafts,
+                          [day.number]: event.target.value,
+                        }))}
+                        aria-label={`Time for new Day ${day.number} stop`}
+                      />
+                      <Input
                         value={stopDrafts[day.number] ?? ""}
                         onChange={(event) => setStopDrafts((drafts) => ({
                           ...drafts,
@@ -702,20 +769,84 @@ export default function Home() {
                         <li className="empty-row">No plans yet for this day.</li>
                       ) : (
                         stopsForDay.map((stop, index) => (
-                          <li key={stop.id}>
+                          <li
+                            className={dragOverStopId === stop.id ? "drag-over" : undefined}
+                            key={stop.id}
+                            onDragOver={(event) => {
+                              if (!draggedStopId || draggedStopId === stop.id) return;
+                              event.preventDefault();
+                              event.dataTransfer.dropEffect = "move";
+                              setDragOverStopId(stop.id);
+                            }}
+                            onDrop={(event) => {
+                              event.preventDefault();
+                              const sourceId = draggedStopId
+                                ?? event.dataTransfer.getData("text/plain");
+                              if (sourceId) reorderStop(sourceId, stop.id, day.number);
+                              setDraggedStopId(null);
+                              setDragOverStopId(null);
+                            }}
+                          >
+                            <button
+                              type="button"
+                              className="drag-handle"
+                              draggable
+                              onDragStart={(event) => {
+                                setDraggedStopId(stop.id);
+                                event.dataTransfer.effectAllowed = "move";
+                                event.dataTransfer.setData("text/plain", stop.id);
+                              }}
+                              onDragEnd={() => {
+                                setDraggedStopId(null);
+                                setDragOverStopId(null);
+                              }}
+                              aria-label={`Drag ${stop.label} to reorder Day ${day.number}`}
+                              title="Drag to reorder"
+                            >
+                              <GripVertical />
+                            </button>
                             <span className="stop-number">
                               {String(index + 1).padStart(2, "0")}
                             </span>
+                            <Input
+                              className="stop-time-input"
+                              type="time"
+                              value={stop.time}
+                              onChange={(event) => updateStopTime(stop.id, event.target.value)}
+                              aria-label={`Time for ${stop.label} on Day ${day.number}`}
+                            />
                             <span className="stop-name">{stop.label}</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              onClick={() => removeStop(stop.id)}
-                              aria-label={`Remove ${stop.label} from Day ${day.number}`}
-                            >
-                              <Trash2 />
-                            </Button>
+                            <span className="stop-actions">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                disabled={index === 0}
+                                onClick={() => moveStop(stop.id, day.number, -1)}
+                                aria-label={`Move ${stop.label} up on Day ${day.number}`}
+                              >
+                                <ChevronUp />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                disabled={index === stopsForDay.length - 1}
+                                onClick={() => moveStop(stop.id, day.number, 1)}
+                                aria-label={`Move ${stop.label} down on Day ${day.number}`}
+                              >
+                                <ChevronDown />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => removeStop(stop.id)}
+                                aria-label={`Remove ${stop.label} from Day ${day.number}`}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </span>
                           </li>
                         ))
                       )}
